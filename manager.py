@@ -5,19 +5,21 @@
 
     Usage:
         manager.py train [--dir=<dir>] [--category=<category>] [--count=<count>]
-        manager.py test [--dir=<dir>] [--filter=<filter>] [--count=<count>]
+        manager.py test [--dir=<dir>] [--classifier=<classifier>] [--start=<start>] [--count=<count>]
         manager.py (-h | --help)
     Options:
         -h,--help                       Show this info
         -d,--dir <dir>                  Doc directory
         -c,--category <category>        The doc category
         --count <count>
-        -f,--filter <filter>            Default bayes
+        -f,--classifier <classifier>    Default bayes
+        -s,--start <start>              Index
 """
 
 from docopt import docopt
 from classifier import classifiers, segmentation_tools
-
+import redis
+import os
 
 def main(args):
     if args["train"]:
@@ -29,11 +31,10 @@ def main(args):
         dirname = args["--dir"]
         f_type = args["--filter"]
         count = args["--count"]
-        bayes_test(dirname, f_type, count=count)
+        start = args["--start"]
+        bayes_test(dirname, f_type, start=start, count=count)
 
 def train(dirname, category, count=100):
-    import redis
-    import os
     if not count:
         count = 100
     count = int(count)
@@ -52,14 +53,7 @@ def train(dirname, category, count=100):
         basefilter.train(text, category)
 
 
-def bayes_test(dirname, f_type, count=100):
-    import redis
-    import os
-    import time
-    now = time.time()
-    if not count:
-        count = 100
-    count = int(count)
+def bayes_test(dirname, f_type, start=0, count=100):
     redis = redis.StrictRedis(db=1)
     get_word = segmentation_tools.jieba_seg
     if f_type == "fisher":
@@ -68,20 +62,18 @@ def bayes_test(dirname, f_type, count=100):
     else:
         classifier = classifiers.BayesClassifier(get_word, redis)
     files = os.listdir(dirname)
-    b_classes = {}
-    if len(files) > count+100:
-        files = files[count:count+100]
+    classes = {}
+    if len(files) > start + 100:
+        files = files[start: start + count]
     for f in files:
         if f.rfind(".txt") == -1:
             continue
         temp = open(os.path.join(dirname, f), "r")
         text = temp.read()
         cat = classifier.classify(text)
-        b_classes.setdefault(cat, 0)
-        b_classes[cat]+=1
-    print b_classes
-    print time.time()-now
-        
+        classes.setdefault(cat, 0)
+        classes[cat]+=1
+    print classes
 
 
 if __name__ == "__main__":
