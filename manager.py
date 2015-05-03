@@ -21,6 +21,7 @@ from classifier import classifiers, segmentation_tools
 import redis
 import os
 
+
 def main(args):
     if args["train"]:
         dirname = args["--dir"]
@@ -29,18 +30,19 @@ def main(args):
         train(dirname, category, count=count)
     if args["test"]:
         dirname = args["--dir"]
-        f_type = args["--filter"]
+        f_type = args["--classifier"]
         count = args["--count"]
         start = args["--start"]
         bayes_test(dirname, f_type, start=start, count=count)
+
 
 def train(dirname, category, count=100):
     if not count:
         count = 100
     count = int(count)
-    redis = redis.StrictRedis(db=1)
+    _redis = redis.StrictRedis(db=1)
     get_word = segmentation_tools.jieba_seg
-    basefilter = classifiers.BaseClassifier(get_word, redis)
+    basefilter = classifiers.BaseClassifier(get_word, _redis)
     files = os.listdir(dirname)
     if len(files) > count:
         files = files[:count]
@@ -54,13 +56,15 @@ def train(dirname, category, count=100):
 
 
 def bayes_test(dirname, f_type, start=0, count=100):
-    redis = redis.StrictRedis(db=1)
+    start = int(start) if start else 0
+    count = int(count) if count else 100
+    _redis = redis.StrictRedis(db=1)
     get_word = segmentation_tools.jieba_seg
     if f_type == "fisher":
         print "fisher"
-        classifier = classifiers.FisherClassifier(get_word, redis)
+        classifier = classifiers.FisherClassifier(get_word, _redis)
     else:
-        classifier = classifiers.BayesClassifier(get_word, redis)
+        classifier = classifiers.BayesClassifier(get_word, _redis)
     files = os.listdir(dirname)
     classes = {}
     if len(files) > start + 100:
